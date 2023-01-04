@@ -1,11 +1,13 @@
 """Automatic generation of test sets for OddOneOut
 and Topk methods using Wikidata"""
+from typing import Tuple, List
+from collections import defaultdict
 from SPARQLWrapper import SPARQLWrapper, JSON
 from wikidata.client import Client
 import re
 
 
-def construct_query(item, language):
+def construct_query(item: str, language: str) -> Tuple[str, str]:
     """Constructs a basic SPARQL query using the 'instance of' property.
 
     Parameters
@@ -44,7 +46,7 @@ def construct_query(item, language):
     return query, title
 
 
-def get_results(query, endpoint_url):
+def get_results(query: str, endpoint_url: str) -> Dict:
     """makes request to Wikidata SPARQL endpoint
     and returns result of query.
 
@@ -68,9 +70,8 @@ def get_results(query, endpoint_url):
     sparql.setReturnFormat(JSON)
     return sparql.query().convert()
 
-
 # format SPARQL results for a single category (a single query)
-def get_category(query, endpoint_url="https://query.wikidata.org/sparql"):
+def get_category(query: str, endpoint_url: str = "https://query.wikidata.org/sparql") -> List[str]:
     """query wikidata to get the list of words belonging to a category
 
     Parameters
@@ -104,37 +105,22 @@ def get_category(query, endpoint_url="https://query.wikidata.org/sparql"):
 
 # create a separate test set for each language from queries.
 # test set formatted to be compatible with OddOneOut and Topk
-def generate_test_set(items, languages, filename):
+def generate_test_set(items: List[str], language: str) -> Dict[str, str]:
     """Generate a complete test set for use with OddOneOut and Topk
 
     Parameters
     ----------
     query : list of str
         list of wikidata categories to be included in the test set
-    languages : list of str
+    language : str
         list of all wikimedia languages to translate test set into
-    filename : str
-        location to save test sets
 
     Returns
     -------
-    None
-        .txt files will be generated and saved at location
-        specified in filename parameter
+    Dict[str, str]
+        Mapping of words to the corresponding categories.
     """
-    for lang in languages:
-        with open(filename+'_'+lang+'.txt', 'w') as f:
-            for i in items:
-                # creates a query
-                query_obj = construct_query(i, lang)
-                query = query_obj[0]
-                title = query_obj[1]
-                # Get the items in the category formed by current query
-                values = get_category(query)
-                # print('query=',query)
-                # print('title=',title)
-                # print('values=',values)
-                f.write(':'+title+' ('+lang+')')
-                f.write('\n')
-                f.writelines('%s ' % item for item in values)
-                f.write('\n')
+    categories = defaultdict(list)
+    for i in items:
+        query, title = construct_query(i, lang)
+        categories[title] = get_category(query)
