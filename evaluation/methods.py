@@ -1,7 +1,7 @@
 """
 Implementation of the Topk and OddOneOut methods for evaluating word embeddings
 """
-from tyiping import Dict, Tuple
+from typing import Dict, Tuple, List
 import re
 from itertools import combinations
 import random
@@ -51,34 +51,8 @@ def top_k(categories: Dict[str, str],
         If OOV is disabled and some words are not in the vocabulary then KeyError
         exception is raised.
     """
-    # skip those categories that has fewer than 2 words
-    skipped_cats = [k for k, cats in categories.items() if len(cats) < 2]
+    logger.info('Performing Topk Evaluation')
 
-    oov_list = set()
-    words_in_test = 0
-    # verify that all words are in the vocabulary
-    for value in categories.values():
-        for word in value:
-            words_in_test += 1
-            # keep track of oov words
-            if allow_oov and not model.has_index_for(word):
-                oov_list.add(word)
-            elif not allow_oov and not model.has_index_for(word):
-                raise KeyError('word '+word+' is not in vocabulary')
-
-    # test set info
-    logger.info('Performing Topk Evaluataion')
-    
-    if len(skipped_cats) > 0:
-        logger.warn('%d categories do not have enough words and will be skipped' % len(skipped_cats))
-    
-    if len(oov_list) > 0:
-        logger.warn('%d words have been identified as out out of vocabulary' % len(oov_list))
-        ratio = len(oov_list)/words_in_test
-        logger.warn('out of vocab ratio is ', '{0:.2f}'.format(ratio))
-
-    logger.info('%d total words in test set' % words_in_test)
-    
     # for tracking scores for each category
     category_acc = {}
     category_raw = {}
@@ -87,37 +61,41 @@ def top_k(categories: Dict[str, str],
     # total number of categories
     m = len(categories.items())
 
-    # remove dupes
-    oov_list = set(oov_list)
-
     # find the topk most similar for each word in all categories
-    for cat, words in cats.items():
-        # zero out for each new category
-        cat_score = 0
+    skipped_categories = []
+    for cat, words in categories.items():
+        if len(words) > 2:
+            score = 0
+            cat_oov = 0
 
-        for word in words:
-            # number of the words
-            n = len(words)
-            category = words
-            # Evaluating Comparisons
-            if word not in oov_list:
-                # find top_k similar words for a given entry
-                topk = model.most_similar(positive=word, topn=k)
-                # items in each category
-                for x in topk:
-                    # x is a tuple and we want first element
-                    cat_score += x[0] in category
+            for word in words:
+                # Evaluating Comparisons
+                if model.has_index_for(word):
+                    # find top_k similar words for a given entry
+                    topk = model.most_similar(positive=word, topn=k)
+                    # items in each category
+                    for x in topk:
+                        # x is a tuple and we want first element
+                        score += x[0] in words
+                else:
+                    cat_oov += 1
 
-        # Update category score
-        category_acc.update({cat: cat_score/(n*k)})
-        category_raw.update({cat: cat_score})
-        # update total raw number correct
-        raw_correct += cat_score
+            n = len(words) if allow_oov else len(words) - cat_oov
+
+            category_acc.update({cat: score / (n * k) if n > 0 else 0})
+            category_raw.update({cat: score})
+            # update total raw number correct
+            raw_correct += score
+        else:
+            skipped_categories.append(cat)
+
+    if len(skipped_categories) > 0:
+        logger.warn('%d categories do not have enough words and has been skipped' % len(skipped_categories.keys()))
 
     # Total Score
     accuracy = sum(category_acc.values()) / m
 
-    return accuracy, category_acc, skipped_cats, raw_correct, category_raw
+    return accuracy, category_acc, skipped_categories, raw_correct, category_raw
 
 
 def odd_one_out(categories: Dict[str, str], 
@@ -173,88 +151,60 @@ def odd_one_out(categories: Dict[str, str],
             - list of skipped categories
             - overall raw score (total number of correct comparisons)
             - category raw score (number of correct comparisons for each category)
-
-    Raises
-    ------
-    KeyError
-        If OOV is disabled and some words are not in the vocabulary then KeyError
-        exception is raised.
     """
     original_state = random.getstate()
     random.seed(random_seed)
     
-    # skip those categories that has fewer than k_in words
-    skipped_cats = [k for k, cats in categories.items() if len(cats) < k_in]
-
-    # Verify all words are in the vocabulary
-    oov_list = set()
-    words_in_test = 0
-    # verify that all words are in the vocabulary
-    for value in categories.values():
-        for word in value:
-            words_in_test += 1
-            # keep track of oov words
-            if allow_oov and not model.has_index_for(word):
-                oov_list.add(word)
-            elif not allow_oov and not model.has_index_for(word):
-                raise KeyError('word '+word+' is not in vocabulary')
-
     # test set info
     logger.info('OddOneOut Evaluation')
     
-    if len(skipped_cats) > 0:
-        logger.warn(' %d categories have fewer than k_in entries and will be skipped' % len(skipped_cats))
-    
-    if len(oov_list) > 0:
-        logger.warn(' %d words have been identified as out out of vocabulary' % len(oov_list))
-        ratio = len(oov_list)/words_in_test
-        logger.warn('out of vocab ratio is ', '{0:.2f}'.format(ratio))
-
-    # for storing accuracies
+        # for tracking scores for each category
     category_acc = {}
     category_raw = {}
-
-    # to return raw # correct preds instead of accuracy
+    # total raw number of correct answers
     raw_correct = 0
-
     # total number of categories
-    m = len(cats.items())
+    m = len(categories.items())
     logger.info('Will calculate the %d th order OddOneOut score for %d categories' % (k_in, m))
+
     not_skipped = 0
-    for cat in cats.keys():
-        s = list(combinations(cats[cat], k_in))
-        c_i = cats[cat]
-        # sample k-combos
-        s_sampled = random.choices(s, k=sample_size)
-        # sample OddOneOut from model vocabulary
-        w_sampled = []
-        while len(w_sampled) < sample_size:
-            word = random.choice(model.index_to_key[:restrict_vocab])
-            # don't add word if it's a dupe
-            if word not in c_i:
-                w_sampled.append(word)
-        # kth order OddOneOut score for category i
-        cat_score = 0
-        # compute OddOneOut for each comparison
-        for in_words, odd_one_out in zip(s_sampled, w_sampled):
-            comparison = in_words + (odd_one_out)
+    skipped_categories = []
+    for cat, words in categories.items():
+        if len(words) > 2:
+            # sample sample_size subsets from words
+            s_sampled = random.choices(list(combinations(words, k_in)), k=sample_size)
+            
+            c_i = categories[cat]
+            # sample OddOneOut from model vocabulary
+            w_sampled = []
+            while len(w_sampled) < sample_size:
+                word = random.choice(model.index_to_key[:(restrict_vocab or None)])
+                if word not in c_i:
+                    w_sampled.append(word)
 
-            # By default don't ignore any comparisons
-            ignore_comparison = False
-            if allow_oov:
-                # check for oov word
-                for w in comparison:
-                    if w in oov_list:
-                        ignore_comparison = True
-            if not ignore_comparison:
-                cat_score += int(model.doesnt_match(comparison) == odd_one_out)
+            # compute OddOneOut for each comparison
+            cat_score = 0
+            cat_oov = 0
+            for in_words, out_word in zip(s_sampled, w_sampled):
+                if model.has_index_for(word):
+                    cat_score += int(model.doesnt_match([*in_words, out_word]) == out_word)
+                else:
+                    cat_oov += 1
 
-        category_acc.update({cat: cat_score/sample_size})
-        category_raw.update({cat: cat_score})
-        # update total raw number correct answers
-        raw_correct += cat_score
+            n = sample_size if allow_oov else sample_size - cat_oov
+
+            category_acc.update({cat: cat_score / n})
+            category_raw.update({cat: cat_score})
+            # update total raw number correct answers
+            raw_correct += cat_score
+        else:
+            skipped_categories.append(cat)
+
+    if len(skipped_categories) > 0:
+        logger.warn('%d categories do not have enough words and has been skipped' % len(skipped_categories.keys()))
+
     # Calculate Total Score
-    accuracy = sum(category_acc.values())/m
+    accuracy = sum(category_acc.values()) / m
     random.setstate(original_state)
 
-    return accuracy, category_acc, skipped_cats, raw_correct, category_raw
+    return accuracy, category_acc, skipped_categories, raw_correct, category_raw

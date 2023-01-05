@@ -1,0 +1,8 @@
+{
+  "endpoint": "https://dbpedia.org/sparql",
+  "variable_name": "label",
+  "user_agent": "",
+  "queries": {
+    "sports": "PREFIX dbo: <http://dbpedia.org/ontology/>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\nSELECT ?label\nWHERE {\n<http://dbpedia.org/resource/List_of_sports> dbo:wikiPageWikiLink [ rdfs:label ?label ] .\nFILTER(langMatches(lang(?label), \"en\")) .\nFILTER(!CONTAINS(?label, \" \")) .\n}\nORDER BY RAND()\nLIMIT 10000"
+  }
+}

@@ -1,7 +1,6 @@
 """Automatic generation of test sets for OddOneOut
 and Topk methods using Wikidata"""
-from typing import Tuple, List
-from collections import defaultdict
+from typing import Tuple, List, Dict
 from SPARQLWrapper import SPARQLWrapper, JSON
 from wikidata.client import Client
 import re
@@ -120,7 +119,8 @@ def generate_test_set(items: List[str], language: str) -> Dict[str, str]:
     Dict[str, str]
         Mapping of words to the corresponding categories.
     """
-    categories = defaultdict(list)
+    categories = dict()
     for i in items:
-        query, title = construct_query(i, lang)
+        query, title = construct_query(i, language)
         categories[title] = get_category(query)
+    return categories
