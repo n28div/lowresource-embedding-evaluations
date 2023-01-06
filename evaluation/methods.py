@@ -6,11 +6,10 @@ import re
 from itertools import combinations
 import random
 import logging
-from gensim.models import KeyedVectors
 
 
 def top_k(categories: Dict[str, str], 
-          model: KeyedVectors, 
+          model, 
           k: int = 3, 
           allow_oov: bool = False,
           logger: logging.Logger = logging.getLogger(__name__)) -> Tuple[float, Dict[str, float], List[str], int, Dict[str, float]]:
@@ -23,7 +22,7 @@ def top_k(categories: Dict[str, str],
         Dictionary containing the categories to be tested.
         The keys of the dictionary are the categories and the values are
         the element that are part of such category.
-    model : KeyedVectors
+    model : gensim.KeyedVectors
         Embedding model used to compute the embeddings. Needs to a gensim
         KeyedVector model.
     k : int, optional
@@ -99,7 +98,7 @@ def top_k(categories: Dict[str, str],
 
 
 def odd_one_out(categories: Dict[str, str], 
-                model: KeyedVectors, 
+                model, 
                 k_in: int = 3, 
                 sample_size: int = 100,
                 restrict_vocab: bool = False,
@@ -122,7 +121,7 @@ def odd_one_out(categories: Dict[str, str],
         Dictionary containing the categories to be tested.
         The keys of the dictionary are the categories and the values are
         the element that are part of such category.
-    model : KeyedVectors
+    model : gensim.KeyedVectors
         Embedding model used to compute the embeddings. Needs to a gensim
         KeyedVector model.
     k_in : int
