@@ -1,5 +1,5 @@
 import pathlib
-from setuptools import setup
+from setuptools import setup, find_packages
 
 # The directory containing this file
 HERE = pathlib.Path(__file__).parent
@@ -22,9 +22,8 @@ setup(
         "License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)",
         "Programming Language :: Python :: 3",
     ],
-    packages=["gensim_evaluations"],
+    packages=find_packages(),
     include_package_data=True,
     install_requires=["sparqlwrapper","Wikidata"], 
     python_requires=">=3.7",
-
 )

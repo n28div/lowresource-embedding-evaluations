@@ -15,16 +15,17 @@ wikidata_parser.add_argument("-l", "--language", type=str)
 
 wikidata_parser = subparsers.add_parser("sparql", help="Generate data using Wikidata.")
 wikidata_parser.add_argument("-c", "--config", type=str)
+wikidata_parser.add_argument("-v", "--vocab", type=str, default=None)
 
 
 if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.source == "wikidata":
-        from evaluation.categories.wikidata import generate_test_set
+        from gensim_evaluations.categories.wikidata import generate_test_set
         categories = generate_test_set(args.categories, args.language)
     elif args.source == "sparql":
-        from evaluation.categories.sparql import generate_test_set
+        from gensim_evaluations.categories.sparql import generate_test_set
 
         with open(args.config, "r") as f:
             config = json.load(f)
@@ -33,6 +34,14 @@ if __name__ == "__main__":
                                        config["endpoint"], 
                                        config["variable_name"], 
                                        user_agent=config["user_agent"])
+                        
+        if "vocab" in config:
+            categories["vocab"] = generate_test_set(
+                {"vocab": config["vocab"]}, 
+                config["endpoint"], 
+                config["variable_name"], 
+                user_agent=config["user_agent"])["vocab"]
+                     
 
     categories_json = json.dumps(categories)
 

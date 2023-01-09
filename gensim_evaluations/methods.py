@@ -1,7 +1,7 @@
 """
 Implementation of the Topk and OddOneOut methods for evaluating word embeddings
 """
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Set
 import re
 from itertools import combinations
 import random
@@ -102,6 +102,7 @@ def odd_one_out(categories: Dict[str, str],
                 k_in: int = 3, 
                 sample_size: int = 100,
                 restrict_vocab: bool = False,
+                vocab: List[str] = None,
                 allow_oov: bool = False,
                 random_seed: int = 42,
                 logger: logging.Logger = logging.getLogger(__name__)) -> Tuple[float, Dict[str, float], List[str], int, Dict[str, float]]:
@@ -132,6 +133,9 @@ def odd_one_out(categories: Dict[str, str],
     restrict_vocab : int, optional
         The size of the model vocabulary to sample the out-word from.
         Defaults to None.
+    vocab: list, optional
+        Vocabulary of tokens in the corpora. If None the index_to_key method
+        of KeyedVectors is used. Defaults to None.
     allow_oov : bool, optional
         Allows comparisons with words not in the model. If set to True,
         comparisons with oov words will be marked as wrong.
@@ -176,8 +180,9 @@ def odd_one_out(categories: Dict[str, str],
             c_i = categories[cat]
             # sample OddOneOut from model vocabulary
             w_sampled = []
+            vocabulary = vocab if vocab is not None else model.index_to_key[:(restrict_vocab or None)]
             while len(w_sampled) < sample_size:
-                word = random.choice(model.index_to_key[:(restrict_vocab or None)])
+                word = random.choice(vocabulary)
                 if word not in c_i:
                     w_sampled.append(word)
 
@@ -200,7 +205,7 @@ def odd_one_out(categories: Dict[str, str],
             skipped_categories.append(cat)
 
     if len(skipped_categories) > 0:
-        logger.warn('%d categories do not have enough words and has been skipped' % len(skipped_categories.keys()))
+        logger.warn('%d categories do not have enough words and has been skipped' % len(skipped_categories))
 
     # Calculate Total Score
     accuracy = sum(category_acc.values()) / m
