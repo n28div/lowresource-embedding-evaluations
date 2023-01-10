@@ -175,7 +175,7 @@ def odd_one_out(categories: Dict[str, str],
     for cat, words in categories.items():
         if len(words) > 2:
             # sample sample_size subsets from words
-            s_sampled = random.choices(list(combinations(words, k_in)), k=sample_size)
+            s_sampled = [random.choices(words, k=k_in) for _ in range(sample_size)]
             
             c_i = categories[cat]
             # sample OddOneOut from model vocabulary
